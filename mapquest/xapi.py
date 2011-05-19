@@ -13,8 +13,6 @@ class xapi:
         self.version = version
         self.endpoint = "http://%s/xapi/api/%s/" % (self.host, self.version)
 
-    # this doesn't actually know how to deal with ways...
-
     def query(self, type, pair, bbox) :
 
         # for example
@@ -29,9 +27,74 @@ class xapi:
         rsp = urllib2.urlopen(url)
         doc = ET.parse(rsp)
 
+        if type == 'node':
+            features = self.nodes(doc)
+        elif type == 'way':
+            features = self.ways(doc)
+        else:
+            features = []
+
+        return {
+            'type' : 'FeatureCollection',
+            'features' : features
+            }
+
+    def ways (self, doc):
+
         features = []
 
-        xpath = ".//%s" % type
+        # because elementtree can't do @attrib=foo
+        # selectors pre version 1.3...
+
+        _nodes = {}
+
+        for node in doc.findall(".//node"):
+            node_id = node.attrib['id']
+            _nodes[node_id] = node
+
+        xpath = ".//way"
+
+        for what in doc.findall(xpath):
+
+            _what = what.attrib
+
+            for t in what.findall(".//tag"):
+                k = t.attrib['k']
+                v = t.attrib['v']
+                _what[k] = v
+
+            nodes = []
+            coords = []
+
+            for n in what.findall(".//nd"):
+
+                node_id = n.attrib['ref']
+                nodes.append(node_id)
+
+                node = _nodes[node_id]
+                lat = node.attrib['lat']
+                lon = node.attrib['lon']
+
+                coords.append((lon, lat))
+
+            _what['nodes'] = nodes
+
+            features.append({
+                    'type' : 'Feature',
+                    'geometry' : {
+                        'type' : 'Polygon',
+                        'coordinates' : [ coords ]
+                        },
+                    'properties' : _what
+                    })
+
+        return features
+
+    def nodes (self, doc):
+
+        features = []
+
+        xpath = ".//node"
 
         for what in doc.findall(xpath):
 
@@ -57,10 +120,7 @@ class xapi:
                     'properties' : _what
                     })
 
-        return {
-            'type' : 'FeatureCollection',
-            'features' : features
-            }
+        return features
 
 if __name__ == '__main__' :
 
@@ -69,10 +129,13 @@ if __name__ == '__main__' :
     import sys
     import json
 
-    query = sys.argv[1]
-    bbox = sys.argv[2:6]
+    # sudo, use opt-parser...
+
+    what = sys.argv[1]
+    query = sys.argv[2]
+    bbox = sys.argv[3:]
 
     x = xapi()
-    rsp = x.query("node", query, bbox)
+    rsp = x.query(what, query, bbox)
 
     print json.dumps(rsp, indent=2)
