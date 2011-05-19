@@ -72,8 +72,8 @@ class xapi:
                 nodes.append(node_id)
 
                 node = _nodes[node_id]
-                lat = node.attrib['lat']
-                lon = node.attrib['lon']
+                lat = float(node.attrib['lat'])
+                lon = float(node.attrib['lon'])
 
                 coords.append((lon, lat))
 
