@@ -77,6 +77,8 @@ class xapi:
 
                 coords.append((lon, lat))
 
+            coords.append(coords[0])
+
             _what['nodes'] = nodes
 
             features.append({
